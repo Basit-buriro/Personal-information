@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-cyber-bg:      #05060A;
+  --color-cyber-surface: #0A0E1A;
+  --color-cyber-cyan:    #00E5FF;
+  --color-cyber-violet:  #8B5CF6;
+  --color-cyber-fuchsia: #FF2EC4;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body:    "Inter", sans-serif;
+  --font-mono:    "JetBrains Mono", monospace;
+
+  --shadow-neon-cyan:    0 0 20px rgba(0, 229, 255, 0.35);
+  --shadow-neon-violet:  0 0 20px rgba(139, 92, 246, 0.35);
+  --shadow-neon-fuchsia: 0 0 20px rgba(255, 46, 196, 0.35);
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--color-cyber-bg);
+    color: #e2e8f0;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .text-gradient-cyber {
+    background: linear-gradient(135deg, #00E5FF 0%, #8B5CF6 50%, #FF2EC4 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
