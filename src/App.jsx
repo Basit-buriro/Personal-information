@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Cursor from './components/Cursor';
@@ -23,8 +23,19 @@ function ScrollToTop() {
   return null;
 }
 
-/* Short splash that fades away over the already-rendered site,
-   so nothing pops or reflows when it ends. */
+/* Handles the redirect from 404.html for GitHub Pages */
+function RedirectHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const redirectPath = sessionStorage.getItem("redirectPath");
+    if (redirectPath) {
+      sessionStorage.removeItem("redirectPath");
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate]);
+  return null;
+}
+
 function Splash() {
   const [show, setShow] = useState(true);
 
@@ -38,19 +49,18 @@ function Splash() {
       {show && (
         <motion.div
           key="splash"
-          className="fixed inset-0 z-[100] bg-cyber-bg flex items-center justify-center"
+          className="fixed inset-0 z-[100] bg-[#120400] flex items-center justify-center"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: EASE }}
         >
-          <p className="text-cyber-cyan font-mono text-sm">Loading…</p>
+          <p className="text-[#ff8a1f] font-mono text-sm">Loading…</p>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-/* Fade between pages. Exit is quick, entrance is a little softer. */
 function AnimatedRoutes() {
   const location = useLocation();
   const reduce = useReducedMotion();
@@ -62,7 +72,7 @@ function AnimatedRoutes() {
         initial={{ opacity: 0, y: reduce ? 0 : 12 }}
         animate={{ opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } }}
         exit={{ opacity: 0, transition: { duration: 0.18 } }}
-        className="w-full"
+        className="w-full flex-1"
       >
         <Routes location={location}>
           <Route path="/" element={<Home />} />
@@ -85,11 +95,13 @@ export default function App() {
       <Cursor />
       <Terminal />
       <ScrollToTop />
+      <RedirectHandler />
       <Splash />
-      {/* Added w-full and overflow-x-hidden to prevent horizontal scroll */}
-      <div className="min-h-screen w-full overflow-x-hidden bg-cyber-bg text-slate-100">
+      
+      {/* Main wrapper ensures full height and no overflow */}
+      <div className="min-h-screen w-full bg-[#120400] text-slate-100 flex flex-col overflow-x-clip">
         <Navbar />
-        <main className="w-full overflow-x-hidden">
+        <main className="flex-1 w-full overflow-x-clip">
           <AnimatedRoutes />
         </main>
       </div>

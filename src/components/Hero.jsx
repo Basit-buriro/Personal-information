@@ -221,10 +221,10 @@ export default function Hero() {
         className="hero-grid"
         style={{
           maxWidth: '1200px',
+          width: '100%', /* 👈 FIX: Ensures grid doesn't stretch beyond screen */
           margin: '0 auto',
           padding: '128px 32px 48px',
           display: 'grid',
-          /* Removed hardcoded gridTemplateColumns - moved to CSS class */
           gap: '64px',
           alignItems: 'center',
           minHeight: '80vh',

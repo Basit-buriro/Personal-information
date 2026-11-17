@@ -183,7 +183,7 @@ export default function Navbar() {
   const sheetClass = ({ isActive }) => `nav-sheet-link${isActive ? ' active' : ''}`;
 
   return (
-    <div data-nav style={{ width: '100%', overflowX: 'hidden' }}>
+    <div data-nav style={{ width: '100%', maxWidth: '100vw' }}>
       <style>{STYLES}</style>
 
       {/* Floating bar */}
