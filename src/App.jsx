@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Cursor from './components/Cursor';
 import Terminal from './components/Terminal';
@@ -12,58 +13,84 @@ import Certificates from './pages/Certificates';
 import Contact from './pages/Contact';
 import CV from './pages/CV';
 
+const EASE = [0.22, 1, 0.36, 1];
+
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 
-export default function App() {
-  const [booted, setBooted] = useState(false);
+/* Short splash that fades away over the already-rendered site,
+   so nothing pops or reflows when it ends. */
+function Splash() {
+  const [show, setShow] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setBooted(true), 1200);
+    const t = setTimeout(() => setShow(false), 700);
     return () => clearTimeout(t);
   }, []);
 
-  if (!booted) {
-    return (
-      <div className="fixed inset-0 bg-cyber-bg flex items-center justify-center">
-        <p className="text-cyber-cyan font-mono tracking-widest">
-          ▍ BOOTING SYSTEM…
-        </p>
-      </div>
-    );
-  }
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="splash"
+          className="fixed inset-0 z-[100] bg-cyber-bg flex items-center justify-center"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: EASE }}
+        >
+          <p className="text-cyber-cyan font-mono text-sm">Loading…</p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* Fade between pages. Exit is quick, entrance is a little softer. */
+function AnimatedRoutes() {
+  const location = useLocation();
+  const reduce = useReducedMotion();
 
   return (
-    <BrowserRouter>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: reduce ? 0 : 12 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } }}
+        exit={{ opacity: 0, transition: { duration: 0.18 } }}
+        className="w-full"
+      >
+        <Routes location={location}>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/skills" element={<Skills />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/certificates" element={<Certificates />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/cv" element={<CV />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Cursor />
       <Terminal />
       <ScrollToTop />
-      <div className="min-h-screen bg-cyber-bg text-slate-100">
+      <Splash />
+      {/* Added w-full and overflow-x-hidden to prevent horizontal scroll */}
+      <div className="min-h-screen w-full overflow-x-hidden bg-cyber-bg text-slate-100">
         <Navbar />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/certificates" element={<Certificates />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/cv" element={<CV />} />
-            <Route path="*" element={
-              <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 pt-24">
-                <h1 className="font-display text-6xl text-white">404</h1>
-                <p className="font-mono text-sm text-cyber-cyan/70 tracking-widest">
-                  SIGNAL LOST — PAGE NOT FOUND
-                </p>
-                <a href="/" className="mt-4 px-5 py-2 rounded-lg border border-cyber-cyan/40 text-cyber-cyan hover:bg-cyber-cyan/10 transition-all font-mono text-xs tracking-widest">
-                  ← RETURN TO BASE
-                </a>
-              </div>
-            } />
-          </Routes>
+        <main className="w-full overflow-x-hidden">
+          <AnimatedRoutes />
         </main>
       </div>
     </BrowserRouter>

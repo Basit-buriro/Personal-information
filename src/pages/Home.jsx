@@ -7,14 +7,13 @@ import Skills from './Skills';
 
 export default function Home() {
   return (
-    <main>
+    <main className="w-full overflow-x-hidden">
       <Hero />
       <About />
       <Skills />
       <Projects />
       <Certificates />
       <Contact />
-
     </main>
   );
 }

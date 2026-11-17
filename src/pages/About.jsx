@@ -1,16 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import HeroImg from '../assets/Hero1.png'
 import { personal, summary, education, experience, certificates, socials } from '../data/cv'
 
 /* ════════════════════════════════════════════════════════════════════════
-   ABOUT — Tailwind only, no animation library.
+   ABOUT — Optimized for smooth performance.
 
-   Motion in this file
-   ────────────────────
+   Motion:
    • Headline words rise out of a mask, then a typewriter cycles roles
    • Portrait tilts toward the cursor with orbit rings, floating tech chips
-     and a status badge that sit at different parallax depths
-   • A soft spotlight and ember particles follow / drift across the viewport
+     and a status badge at different parallax depths
+   • Soft spotlight and ember particles follow / drift across the viewport
    • Scroll progress bar, scroll-driven timeline, drifting watermark
    • Blocks reveal from up / left / right / zoom with staggered delays
    • Cards get a cursor spotlight and a light tilt on hover
@@ -19,7 +18,6 @@ import { personal, summary, education, experience, certificates, socials } from 
    • Section dots (scroll-spy) on wide screens
 
    Everything respects prefers-reduced-motion and coarse pointers.
-   Keyframes live in the <style> block below so tailwind.config stays untouched.
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ────────────────────────────────────────────────────────────
@@ -82,21 +80,9 @@ const CHIPS = [
 ]
 
 const FOCUS = [
-  {
-    icon: Code,
-    title: 'Frontend Engineering',
-    desc: 'Pixel-perfect, responsive UIs with React, Next.js, and Tailwind CSS.',
-  },
-  {
-    icon: Server,
-    title: 'Backend & APIs',
-    desc: 'Scalable REST APIs with Node.js, Express, and MongoDB.',
-  },
-  {
-    icon: Spark,
-    title: 'AI & Automation',
-    desc: 'Python experiments that put AI to work, from voice assistants to smart attendance.',
-  },
+  { icon: Code, title: 'Frontend Engineering', desc: 'Pixel-perfect, responsive UIs with React, Next.js, and Tailwind CSS.' },
+  { icon: Server, title: 'Backend & APIs', desc: 'Scalable REST APIs with Node.js, Express, and MongoDB.' },
+  { icon: Spark, title: 'AI & Automation', desc: 'Python experiments that put AI to work, from voice assistants to smart attendance.' },
 ]
 
 const NAV = [
@@ -132,7 +118,7 @@ const REVEAL_FROM = {
 }
 
 /* ────────────────────────────────────────────────────────────
-   KEYFRAMES (injected once, scoped by name)
+   KEYFRAMES
    ──────────────────────────────────────────────────────────── */
 const KEYFRAMES = `
 @keyframes about-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
@@ -155,18 +141,15 @@ const KEYFRAMES = `
 `
 
 /* ────────────────────────────────────────────────────────────
-   SMALL HELPERS
+   HELPERS
    ──────────────────────────────────────────────────────────── */
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n))
 const lerp = (a, b, t) => a + (b - a) * t
-
-/* Deterministic pseudo-random 0..1 so ember layout is stable between renders. */
 const seeded = (i) => {
   const x = Math.sin(i * 127.1) * 43758.5453
   return x - Math.floor(x)
 }
-
-const RING_LEN = 113.1 // circumference of the r=18 progress ring
+const RING_LEN = 113.1
 
 /* ────────────────────────────────────────────────────────────
    HOOKS
@@ -188,8 +171,6 @@ function useMedia(query) {
 const useReducedMotion = () => useMedia('(prefers-reduced-motion: reduce)')
 const useFinePointer = () => useMedia('(pointer: fine)')
 
-/* Eases the portrait tilt (--px/--py, -1..1) and the viewport spotlight
-   (--gx/--gy, px) toward the cursor. Writes CSS variables only — no re-renders. */
 function usePointerFollow(stageRef, glowRef, enabled) {
   useEffect(() => {
     if (!enabled) return undefined
@@ -226,8 +207,6 @@ function usePointerFollow(stageRef, glowRef, enabled) {
     const onMove = (e) => {
       if (stage) {
         const r = stage.getBoundingClientRect()
-        // -1..1 from the portrait centre, measured against half the viewport,
-        // so the portrait keeps following the cursor anywhere on the page.
         tx = clamp((e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2), -1, 1)
         ty = clamp((e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2), -1, 1)
       }
@@ -247,8 +226,6 @@ function usePointerFollow(stageRef, glowRef, enabled) {
   }, [enabled, stageRef, glowRef])
 }
 
-/* One rAF-throttled scroll handler drives: progress bar, back-to-top ring,
-   timeline fill, and the horizontal drift of the background watermark. */
 function useScrollMotion({ barRef, ringRef, timelineRef, fillRef, wmRef, onTopVisible }) {
   useEffect(() => {
     let raf = 0
@@ -293,12 +270,9 @@ function useScrollMotion({ barRef, ringRef, timelineRef, fillRef, wmRef, onTopVi
   }, [barRef, ringRef, timelineRef, fillRef, wmRef, onTopVisible])
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ────────────────────────────────────────────────────────────
    BUILDING BLOCKS
-   ════════════════════════════════════════════════════════════ */
-
-/* Scroll reveal. Sets data-in="true" once; children can key off it with
-   group-data-[in=true]/r: variants (used by the timeline dots and bullets). */
+   ──────────────────────────────────────────────────────────── */
 function Reveal({ as: Tag = 'div', variant = 'up', delay = 0, className = '', children, ...rest }) {
   const ref = useRef(null)
 
@@ -335,7 +309,6 @@ function Reveal({ as: Tag = 'div', variant = 'up', delay = 0, className = '', ch
   )
 }
 
-/* Section heading: text slides up out of a mask, underline draws across. */
 function BlockTitle({ id, kicker, children }) {
   return (
     <Reveal variant="up" className="mb-7">
@@ -353,7 +326,6 @@ function BlockTitle({ id, kicker, children }) {
   )
 }
 
-/* Button/chip that leans toward the cursor when it is close. */
 function Magnetic({ strength = 0.3, className = '', children }) {
   const ref = useRef(null)
   const fine = useFinePointer()
@@ -380,7 +352,6 @@ function Magnetic({ strength = 0.3, className = '', children }) {
   )
 }
 
-/* Glass card with a cursor-following glow and a very light 3D tilt. */
 function SpotlightCard({ as: Tag = 'div', tilt = true, className = '', children, ...rest }) {
   const ref = useRef(null)
   const fine = useFinePointer()
@@ -424,7 +395,6 @@ function SpotlightCard({ as: Tag = 'div', tilt = true, className = '', children,
   )
 }
 
-/* Counts from 0 to `to` the first time it is mostly visible. */
 function Counter({ to, suffix = '', duration = 1400 }) {
   const ref = useRef(null)
   const reduced = useReducedMotion()
@@ -463,7 +433,6 @@ function Counter({ to, suffix = '', duration = 1400 }) {
   return <span ref={ref}>{value}{suffix}</span>
 }
 
-/* Types a word, holds, deletes it, moves to the next. */
 function Typewriter({ words }) {
   const reduced = useReducedMotion()
   const [index, setIndex] = useState(0)
@@ -498,7 +467,6 @@ function Typewriter({ words }) {
   )
 }
 
-/* Splits a string into words that rise out of an overflow mask, staggered. */
 function SplitTitle({ text, baseDelay = 0, wordClass = '' }) {
   return text.split(' ').map((word, i) => (
     <span
@@ -515,8 +483,7 @@ function SplitTitle({ text, baseDelay = 0, wordClass = '' }) {
   ))
 }
 
-/* Ember particles drifting up the viewport. Fixed, behind the content. */
-function Embers({ count = 22 }) {
+function Embers({ count = 16 }) {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
       {Array.from({ length: count }, (_, i) => {
@@ -541,9 +508,8 @@ function Embers({ count = 22 }) {
   )
 }
 
-/* Infinite marquee; pauses on hover. Edges fade out with a mask. */
 function Marquee({ items, reverse = false, speed = 28 }) {
-  const loop = [...items, ...items]
+  const loop = useMemo(() => [...items, ...items], [items])
   return (
     <div className="relative overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
       <div
@@ -567,9 +533,8 @@ function Marquee({ items, reverse = false, speed = 28 }) {
   )
 }
 
-/* Copies the email and confirms with a small pop. */
 function CopyEmail({ email }) {
-  const [state, setState] = useState('idle') // idle | ok | fail
+  const [state, setState] = useState('idle')
   const timer = useRef(0)
 
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -601,7 +566,6 @@ function CopyEmail({ email }) {
   )
 }
 
-/* Dots on the right edge; the one for the section in view stretches. */
 function SectionNav() {
   const reduced = useReducedMotion()
   const [active, setActive] = useState(NAV[0].id)
@@ -658,7 +622,6 @@ function SectionNav() {
   )
 }
 
-/* Round button with a scroll-progress ring. Appears after the first screen. */
 function BackToTop({ visible, ringRef }) {
   const reduced = useReducedMotion()
   return (
@@ -691,7 +654,6 @@ function BackToTop({ visible, ringRef }) {
   )
 }
 
-/* Small mouse-shaped hint under the intro; the dot bobs down. */
 function ScrollCue() {
   return (
     <div
@@ -706,27 +668,23 @@ function ScrollCue() {
   )
 }
 
-/* Portrait: conic ring, orbiting dashed ring, tilting frame, floating chips. */
 function Portrait({ stageRef }) {
   return (
     <div
       ref={stageRef}
       className="relative mx-auto w-full max-w-[380px] animate-[about-pop_1s_cubic-bezier(0.16,1,0.3,1)_both] [--px:0] [--py:0] [perspective:900px]"
     >
-      {/* pulsing warm glow behind everything, moves opposite to the tilt */}
       <div
         aria-hidden="true"
         className="absolute inset-[8%_-8%_-8%_8%] rounded-[40px] bg-gradient-to-br from-[#ff3d00] to-[#ff8a1f] blur-[46px] animate-[about-glow_5s_ease-in-out_infinite] [transform:translate3d(calc(var(--px)_*_-26px),calc(var(--py)_*_-26px),0)]"
       />
 
-      {/* orbit: dashed circle with a small ember travelling around it */}
       <div aria-hidden="true" className="absolute inset-0 animate-[about-spin-rev_26s_linear_infinite]">
         <div className="absolute left-1/2 top-1/2 h-[138%] w-[138%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-[#ff8a1f]/30">
           <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ff8a1f] shadow-[0_0_14px_3px_rgba(255,138,31,0.8)]" />
         </div>
       </div>
 
-      {/* conic ring: only the 10px that peeks out from under the frame is visible */}
       <div aria-hidden="true" className="absolute -inset-[10px] overflow-hidden rounded-[38px]">
         <div className="absolute -inset-[60%] animate-[about-spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent,#ff3d00,transparent,#ff8a1f,transparent)]" />
       </div>
@@ -737,14 +695,12 @@ function Portrait({ stageRef }) {
           alt={personal.name}
           className="h-full w-full object-cover object-top [transform:scale(1.08)_translate3d(calc(var(--px)_*_-10px),calc(var(--py)_*_-10px),0)]"
         />
-        {/* highlight follows the cursor */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_calc(50%+var(--px)*40%)_calc(50%+var(--py)*40%),rgba(255,190,120,0.22),transparent_70%)]"
         />
       </div>
 
-      {/* floating chips — outer layer parallaxes, inner layer floats */}
       {CHIPS.map((chip) => (
         <div
           key={chip.label}
@@ -761,7 +717,6 @@ function Portrait({ stageRef }) {
         </div>
       ))}
 
-      {/* status badge */}
       <div
         className="absolute inset-x-0 -bottom-4 z-20 flex justify-center [transform:translate3d(calc(var(--px)_*_16px),calc(var(--py)_*_16px),0)]"
         aria-hidden="true"
@@ -797,11 +752,22 @@ export default function About() {
   usePointerFollow(stageRef, glowRef, fine && !reduced)
   useScrollMotion({ barRef, ringRef, timelineRef, fillRef, wmRef, onTopVisible: setShowTop })
 
-  const stats = [
+  const stats = useMemo(() => [
     { label: 'Roles held', value: experience.length },
     { label: 'Places studied', value: education.length },
     { label: 'Certificates', value: certificates.length },
-  ]
+  ], [])
+
+  /* Combine CV data with the new Mehran University Python + AI program */
+  const allEducation = useMemo(() => [
+    ...education,
+    {
+      degree: 'Python Programming with AI',
+      school: 'Mehran University of Engineering & Technology',
+      period: '6 months',
+      description: 'Intensive program covering Python fundamentals, data handling, machine learning basics, and practical AI application development.',
+    },
+  ], [])
 
   return (
     <section
@@ -810,7 +776,6 @@ export default function About() {
     >
       <style>{KEYFRAMES}</style>
 
-      {/* ── fixed / ambient layers ── */}
       <div
         ref={barRef}
         aria-hidden="true"
@@ -833,16 +798,13 @@ export default function About() {
       <SectionNav />
       <BackToTop visible={showTop} ringRef={ringRef} />
 
-      {/* ── content ── */}
       <div className="relative z-10 mx-auto grid max-w-[1180px] gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
-        {/* Portrait column: sticky on desktop while the right column scrolls */}
         <aside className="self-start pb-6 lg:sticky lg:top-28">
           <Portrait stageRef={stageRef} />
           <ScrollCue />
         </aside>
 
         <div className="min-w-0">
-          {/* ═════ INTRO ═════ */}
           <header id="about-intro" className="scroll-mt-28">
             <h1 className="font-display text-[clamp(2.4rem,5vw,4.2rem)] font-semibold leading-[0.95] tracking-[-0.035em] [text-shadow:0_6px_40px_rgba(0,0,0,0.45)]">
               <SplitTitle text="Hi, I'm" />
@@ -871,14 +833,8 @@ export default function About() {
             <ul className="mt-6 grid gap-2.5 text-sm text-white/70">
               {[
                 { Icon: Pin, node: <span>{personal.location}</span> },
-                {
-                  Icon: Mail,
-                  node: <a href={`mailto:${personal.email}`} className="hover:text-white">{personal.email}</a>,
-                },
-                {
-                  Icon: Phone,
-                  node: <a href={`tel:${personal.phone}`} className="hover:text-white">{personal.phone}</a>,
-                },
+                { Icon: Mail, node: <a href={`mailto:${personal.email}`} className="hover:text-white">{personal.email}</a> },
+                { Icon: Phone, node: <a href={`tel:${personal.phone}`} className="hover:text-white">{personal.phone}</a> },
               ].map(({ Icon, node }, i) => (
                 <li
                   key={i}
@@ -924,7 +880,6 @@ export default function About() {
               </div>
             </div>
 
-            {/* counters */}
             <ul className="mt-10 grid grid-cols-3 gap-3">
               {stats.map((s, i) => (
                 <li key={s.label} className={RISE} style={{ animationDelay: `${1300 + i * 110}ms` }}>
@@ -939,7 +894,6 @@ export default function About() {
             </ul>
           </header>
 
-          {/* ═════ EXPERIENCE (scroll-driven timeline) ═════ */}
           <section id="about-exp" className="mt-24 scroll-mt-28" aria-labelledby="about-exp-title">
             <BlockTitle id="about-exp-title" kicker="Roles, newest first">
               Where I&apos;ve worked
@@ -995,14 +949,14 @@ export default function About() {
             </div>
           </section>
 
-          {/* ═════ EDUCATION ═════ */}
+          {/* ═════ EDUCATION — includes Mehran University Python + AI ═════ */}
           <section id="about-edu" className="mt-28 scroll-mt-28" aria-labelledby="about-edu-title">
             <BlockTitle id="about-edu-title" kicker="Where the foundations came from">
               Where I learned
             </BlockTitle>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              {education.map((ed, i) => (
+              {allEducation.map((ed, i) => (
                 <Reveal key={i} variant={i % 2 ? 'right' : 'left'} delay={i * 90}>
                   <SpotlightCard as="article" className="h-full p-5">
                     <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl border border-[#ff8a1f]/30 bg-[#ff3d00]/10 text-[#ff8a1f] transition-transform duration-500 ease-out group-hover:-rotate-6 group-hover:scale-110">
@@ -1018,7 +972,6 @@ export default function About() {
             </div>
           </section>
 
-          {/* ═════ CERTIFICATES ═════ */}
           <section id="about-cert" className="mt-28 scroll-mt-28" aria-labelledby="about-cert-title">
             <BlockTitle id="about-cert-title" kicker="Courses and credentials">
               Credentials and training
@@ -1030,7 +983,6 @@ export default function About() {
                   <div
                     className={`group relative flex gap-3.5 overflow-hidden rounded-[14px] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-[#ff8a1f]/45 ${GLASS}`}
                   >
-                    {/* light sweep on hover */}
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-y-0 -left-full w-full skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent transition-transform duration-[900ms] ease-out group-hover:translate-x-[200%]"
@@ -1047,7 +999,6 @@ export default function About() {
             </ul>
           </section>
 
-          {/* ═════ FOCUS + MARQUEES ═════ */}
           <section id="about-focus" className="mt-28 scroll-mt-28" aria-labelledby="about-focus-title">
             <BlockTitle id="about-focus-title" kicker="What I reach for most">
               What I do best
@@ -1073,10 +1024,8 @@ export default function About() {
             </Reveal>
           </section>
 
-          {/* ═════ CONTACT ═════ */}
           <section id="about-contact" className="mt-28 scroll-mt-28" aria-labelledby="about-contact-title">
             <Reveal variant="zoom" className="relative overflow-hidden rounded-[28px] p-px">
-              {/* rotating conic border */}
               <div
                 aria-hidden="true"
                 className="absolute -inset-[100%] animate-[about-spin_6s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,#ff3d00_90deg,transparent_180deg,#ff8a1f_270deg,transparent_360deg)]"
